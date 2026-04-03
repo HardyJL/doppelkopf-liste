@@ -21,13 +21,14 @@ class ScoringListAdapter extends TypeAdapter<ScoringList> {
       timestamp: fields[1] as DateTime,
       players: (fields[2] as List).cast<String>(),
       games: (fields[3] as List).cast<Game>(),
+      pendingBockGames: fields[4] == null ? 0 : fields[4] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, ScoringList obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.title)
       ..writeByte(1)
@@ -35,7 +36,9 @@ class ScoringListAdapter extends TypeAdapter<ScoringList> {
       ..writeByte(2)
       ..write(obj.players)
       ..writeByte(3)
-      ..write(obj.games);
+      ..write(obj.games)
+      ..writeByte(4)
+      ..write(obj.pendingBockGames);
   }
 
   @override

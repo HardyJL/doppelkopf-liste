@@ -19,20 +19,23 @@ class GameAdapter extends TypeAdapter<Game> {
     return Game(
       winners: (fields[0] as List).cast<String>(),
       plusPoints: fields[1] as int,
-      isSolo: fields[2] as bool,
+      isSolo: fields[2] == null ? false : fields[2] as bool,
+      isBock: fields[3] == null ? false : fields[3] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Game obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.winners)
       ..writeByte(1)
       ..write(obj.plusPoints)
       ..writeByte(2)
-      ..write(obj.isSolo);
+      ..write(obj.isSolo)
+      ..writeByte(3)
+      ..write(obj.isBock);
   }
 
   @override

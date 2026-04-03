@@ -18,11 +18,15 @@ class ScoringList extends HiveObject {
   @HiveField(3)
   List<Game> games;
 
+  @HiveField(4, defaultValue: 0)
+  int pendingBockGames;
+
   ScoringList({
     required this.title,
     required this.timestamp,
     required this.players,
     this.games = const [],
+    this.pendingBockGames = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -30,6 +34,7 @@ class ScoringList extends HiveObject {
         'timestamp': timestamp.toIso8601String(),
         'players': players,
         'games': games.map((e) => e.toJson()).toList(),
+        'pendingBockGames': pendingBockGames,
       };
 
   factory ScoringList.fromJson(Map<String, dynamic> json) => ScoringList(
@@ -39,5 +44,6 @@ class ScoringList extends HiveObject {
         games: (json['games'] as List)
             .map((e) => Game.fromJson(e as Map<String, dynamic>))
             .toList(),
+        pendingBockGames: json['pendingBockGames'] as int? ?? 0,
       );
 }

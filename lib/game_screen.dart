@@ -107,6 +107,77 @@ class GameScreen extends StatelessWidget {
                           ],
                         ),
                       ),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(24),
+                          onTap: () {
+                            if (currentList != null) {
+                              currentList.pendingBockGames += allPlayers.length;
+                              currentList.save();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Added one Bock round'),
+                                ),
+                              );
+                            }
+                          },
+                          onLongPress: () {
+                            if (currentList != null &&
+                                currentList.pendingBockGames > 0) {
+                              currentList.pendingBockGames = (currentList
+                                          .pendingBockGames -
+                                      allPlayers.length)
+                                  .clamp(0, 1000);
+                              currentList.save();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Removed one Bock round'),
+                                ),
+                              );
+                            }
+                          },
+                          child: Stack(
+                            alignment: Alignment.topRight,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  'B',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ),
+                              if (currentList != null &&
+                                  currentList.pendingBockGames > 0)
+                                Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
+                                  child: Text(
+                                    '${currentList.pendingBockGames}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.add_circle_outline),
                         color: colorScheme.primary,
@@ -156,6 +227,7 @@ class GameScreen extends StatelessWidget {
                                     'Pts',
                                     isHeader: true,
                                   ),
+                                  _buildTableCell(context, 'B', isHeader: true),
                                   _buildTableCell(
                                     context,
                                     'Game',
@@ -203,12 +275,24 @@ class GameScreen extends StatelessWidget {
                                       context,
                                       game == null
                                           ? '-'
-                                          : (game.isSolo
-                                                ? '${3 * game.plusPoints}/${game.plusPoints}'
-                                                : '${game.plusPoints}'),
+                                          : () {
+                                              final pts = game.isBock
+                                                  ? 2 * game.plusPoints
+                                                  : game.plusPoints;
+                                              return game.isSolo
+                                                  ? '${3 * pts}/$pts'
+                                                  : '$pts';
+                                            }(),
                                       isRoundEnd: isRoundEnd,
                                       isBold: true,
                                       onLongPress: onLongPress,
+                                    ),
+                                    _buildTableCell(
+                                      context,
+                                      game?.isBock == true ? 'B' : '',
+                                      isRoundEnd: isRoundEnd,
+                                      onLongPress: onLongPress,
+                                      isBold: true,
                                     ),
                                     _buildTableCell(
                                       context,
@@ -349,11 +433,18 @@ class GameScreen extends StatelessWidget {
                   onPressed: () {
                     final points = int.tryParse(pointsController.text);
                     if (points != null && selectedWinners.isNotEmpty) {
+                      bool isBockGame = false;
+                      if (scoringList.pendingBockGames > 0) {
+                        isBockGame = true;
+                        scoringList.pendingBockGames--;
+                      }
+
                       scoringList.games.add(
                         Game(
                           winners: selectedWinners,
                           plusPoints: points,
                           isSolo: isSolo,
+                          isBock: isBockGame,
                         ),
                       );
                       scoringList.save();
@@ -394,6 +485,11 @@ class GameScreen extends StatelessWidget {
           ? (game.plusPoints * loserCount)
           : game.plusPoints;
       int loserDelta = -game.plusPoints;
+
+      if (game.isBock) {
+        winnerDelta *= 2;
+        loserDelta *= 2;
+      }
 
       for (var player in allPlayers) {
         if (sitOutPlayers.contains(player)) {

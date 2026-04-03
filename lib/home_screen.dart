@@ -121,6 +121,9 @@ class HomeScreen extends StatelessWidget {
                         ),
                       );
                     },
+                    onLongPress: () {
+                      _showDeleteConfirmationDialog(context, scoringList);
+                    },
                   );
                 },
               );
@@ -132,6 +135,37 @@ class HomeScreen extends StatelessWidget {
         onPressed: () => _showNewGameDialog(context),
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  void _showDeleteConfirmationDialog(
+    BuildContext context,
+    ScoringList scoringList,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Session?'),
+          content: Text('Are you sure you want to delete "${scoringList.title}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                scoringList.delete();
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

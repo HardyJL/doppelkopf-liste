@@ -10,202 +10,228 @@ class GameScreen extends StatelessWidget {
   const GameScreen({super.key, required this.scoringList});
 
   @override
-    Widget build(BuildContext context) {
+  Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: ValueListenableBuilder<Box<ScoringList>>(
           valueListenable: Hive.box<ScoringList>('scoring_lists').listenable(),
           builder: (context, box, _) {
-          final currentList = box.get(scoringList.key);
-          final games = currentList?.games.toList() ?? [];
+            final currentList = box.get(scoringList.key);
+            final games = currentList?.games.toList() ?? [];
 
-          final allPlayers = scoringList.players;
-          final history = calculateCumulativeScores(
-            games.cast<Game>(),
-            allPlayers,
-          );
-          // If games is empty, we only have the initial [0,0,0,0] row from calculateCumulativeScores.
-          // We want to show it.
-          // If games is NOT empty, we want to skip that initial row.
-          final displayHistory = games.isEmpty ? history : history.skip(1).toList();
+            final allPlayers = scoringList.players;
+            final shortNames = _getShortNames(allPlayers);
+            final history = calculateCumulativeScores(
+              games.cast<Game>(),
+              allPlayers,
+            );
+            final displayHistory = games.isEmpty
+                ? history
+                : history.skip(1).toList();
 
-          final colorScheme = Theme.of(context).colorScheme;
-          final sitOutIndices = _getSitOutIndices(games.length, allPlayers.length);
-          final sitOutNames = sitOutIndices.map((idx) => allPlayers[idx]).join(', ');
-          final dealerName = allPlayers[games.length % allPlayers.length];
+            final colorScheme = Theme.of(context).colorScheme;
+            final sitOutIndices = _getSitOutIndices(
+              games.length,
+              allPlayers.length,
+            );
+            final sitOutNames = sitOutIndices
+                .map((idx) => allPlayers[idx])
+                .join(', ');
+            final dealerName = allPlayers[games.length % allPlayers.length];
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        spacing: 16,
-                        runSpacing: 8,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.person_outline, size: 20, color: colorScheme.primary),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Next Dealer: ',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              Text(
-                                dealerName,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.primary,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (allPlayers.length > 4)
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 16,
+                          runSpacing: 8,
+                          children: [
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.event_busy, size: 20, color: colorScheme.error),
+                                Icon(
+                                  Icons.person_outline,
+                                  size: 20,
+                                  color: colorScheme.primary,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Sits out: ',
+                                  'Next Dealer: ',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                                 Text(
-                                  sitOutNames,
+                                  dealerName,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: colorScheme.error,
+                                    color: colorScheme.primary,
                                     fontSize: 16,
                                   ),
                                 ),
                               ],
                             ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      color: colorScheme.primary,
-                      iconSize: 28,
-                      onPressed: () => _showAddGameDialog(context),
-                      tooltip: 'Add Game',
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.all(16.0),
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minWidth: MediaQuery.of(context).size.width - 32, // More precise width
-                        ),
-                        child: Table(
-                          defaultColumnWidth: const IntrinsicColumnWidth(),
-                          children: [
-                            TableRow(
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHighest,
-                              ),
-                              children: [
-                                ...allPlayers.map(
-                                  (player) => _buildTableCell(
-                                    context,
-                                    player,
-                                    isHeader: true,
-                                  ),
-                                ),
-                                _buildTableCell(context, 'Pts', isHeader: true),
-                                _buildTableCell(context, 'Game', isHeader: true),
-                              ],
-                            ),
-                            ...List.generate(displayHistory.length, (index) {
-                              final rowData = displayHistory[index];
-                              final isInitial = games.isEmpty;
-                              final game = isInitial ? null : games[index] as Game;
-                              final gameNumber = isInitial ? 0 : index + 1;
-                              final isRoundEnd = !isInitial && gameNumber % allPlayers.length == 0;
-
-                              void onLongPress() {
-                                if (!isInitial) {
-                                  _confirmDeleteGame(context, index);
-                                }
-                              }
-
-                              return TableRow(
-                                decoration: BoxDecoration(
-                                  color: index.isEven
-                                      ? null
-                                      : colorScheme.surfaceContainerHighest.withOpacity(
-                                          0.3,
-                                        ),
-                                ),
+                            if (allPlayers.length > 4)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  ...allPlayers.map((player) {
-                                    final score = rowData[player] ?? 0;
-                                    return _buildTableCell(
-                                      context,
-                                      score.toString(),
-                                      score: score,
-                                      isBold: isRoundEnd || isInitial,
-                                      isRoundEnd: isRoundEnd,
-                                      onLongPress: onLongPress,
-                                    );
-                                  }),
-                                  _buildTableCell(
-                                    context,
-                                    game == null
-                                        ? '-'
-                                        : (game.isSolo
-                                            ? '${3 * game.plusPoints}/${game.plusPoints}'
-                                            : '${game.plusPoints}'),
-                                    isRoundEnd: isRoundEnd,
-                                    isBold: true,
-                                    onLongPress: onLongPress,
+                                  Icon(
+                                    Icons.event_busy,
+                                    size: 20,
+                                    color: colorScheme.error,
                                   ),
-                                  _buildTableCell(
-                                    context,
-                                    '$gameNumber',
-                                    isRoundEnd: isRoundEnd,
-                                    onLongPress: onLongPress,
-                                    isBold: isInitial,
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Sits out: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  Text(
+                                    sitOutNames,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.error,
+                                      fontSize: 16,
+                                    ),
                                   ),
                                 ],
-                              );
-                            }),
+                              ),
                           ],
                         ),
                       ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline),
+                        color: colorScheme.primary,
+                        iconSize: 28,
+                        onPressed: () => _showAddGameDialog(context),
+                        tooltip: 'Add Game',
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Card(
+                    elevation: 2,
+                    margin: const EdgeInsets.all(16.0),
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth:
+                                MediaQuery.of(context).size.width -
+                                32, // More precise width
+                          ),
+                          child: Table(
+                            defaultColumnWidth: const IntrinsicColumnWidth(),
+                            children: [
+                              TableRow(
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainerHighest,
+                                ),
+                                children: [
+                                  ...allPlayers.map(
+                                    (player) => _buildTableCell(
+                                      context,
+                                      shortNames[player] ?? player,
+                                      isHeader: true,
+                                    ),
+                                  ),
+                                  _buildTableCell(
+                                    context,
+                                    'Pts',
+                                    isHeader: true,
+                                  ),
+                                  _buildTableCell(
+                                    context,
+                                    'Game',
+                                    isHeader: true,
+                                  ),
+                                ],
+                              ),
+                              ...List.generate(displayHistory.length, (index) {
+                                final rowData = displayHistory[index];
+                                final isInitial = games.isEmpty;
+                                final game = isInitial
+                                    ? null
+                                    : games[index] as Game;
+                                final gameNumber = isInitial ? 0 : index + 1;
+                                final isRoundEnd =
+                                    !isInitial &&
+                                    gameNumber % allPlayers.length == 0;
+
+                                void onLongPress() {
+                                  if (!isInitial) {
+                                    _confirmDeleteGame(context, index);
+                                  }
+                                }
+
+                                return TableRow(
+                                  decoration: BoxDecoration(
+                                    color: index.isEven
+                                        ? null
+                                        : colorScheme.surfaceContainerHighest
+                                              .withOpacity(0.3),
+                                  ),
+                                  children: [
+                                    ...allPlayers.map((player) {
+                                      final score = rowData[player] ?? 0;
+                                      return _buildTableCell(
+                                        context,
+                                        score.toString(),
+                                        score: score,
+                                        isBold: isRoundEnd || isInitial,
+                                        isRoundEnd: isRoundEnd,
+                                        onLongPress: onLongPress,
+                                      );
+                                    }),
+                                    _buildTableCell(
+                                      context,
+                                      game == null
+                                          ? '-'
+                                          : (game.isSolo
+                                                ? '${3 * game.plusPoints}/${game.plusPoints}'
+                                                : '${game.plusPoints}'),
+                                      isRoundEnd: isRoundEnd,
+                                      isBold: true,
+                                      onLongPress: onLongPress,
+                                    ),
+                                    _buildTableCell(
+                                      context,
+                                      '$gameNumber',
+                                      isRoundEnd: isRoundEnd,
+                                      onLongPress: onLongPress,
+                                      isBold: isInitial,
+                                    ),
+                                  ],
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
-    ),
     );
   }
 
@@ -240,7 +266,10 @@ class GameScreen extends StatelessWidget {
     List<String> selectedWinners = [];
     bool isSolo = false;
     final allPlayers = scoringList.players;
-    final sitOutIndices = _getSitOutIndices(scoringList.games.length, allPlayers.length);
+    final sitOutIndices = _getSitOutIndices(
+      scoringList.games.length,
+      allPlayers.length,
+    );
     final sitOutPlayers = sitOutIndices.map((idx) => allPlayers[idx]).toSet();
 
     await showDialog(
@@ -249,7 +278,7 @@ class GameScreen extends StatelessWidget {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              insetPadding: const EdgeInsets.all(16.0),
+              insetPadding: const EdgeInsets.all(8.0),
               title: const Text('Record Game'),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width,
@@ -268,49 +297,49 @@ class GameScreen extends StatelessWidget {
                           prefixIcon: Icon(Icons.add_circle_outline),
                         ),
                       ),
-                    const SizedBox(height: 16),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Solo Game'),
-                      value: isSolo,
-                      onChanged: (val) => setState(() => isSolo = val),
-                    ),
-                    const Divider(),
-                    Text(
-                      'Select Winners',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    ...allPlayers.map((player) {
-                      final isSittingOut = sitOutPlayers.contains(player);
-                      return CheckboxListTile(
+                      const SizedBox(height: 16),
+                      SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        title: Text(
-                          player + (isSittingOut ? ' (Sitting out)' : ''),
-                          style: TextStyle(
-                            color: isSittingOut ? Colors.grey : null,
-                            fontStyle: isSittingOut ? FontStyle.italic : null,
+                        title: const Text('Solo Game'),
+                        value: isSolo,
+                        onChanged: (val) => setState(() => isSolo = val),
+                      ),
+                      const Divider(),
+                      Text(
+                        'Select Winners',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      ...allPlayers.map((player) {
+                        final isSittingOut = sitOutPlayers.contains(player);
+                        return CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(
+                            player + (isSittingOut ? ' (Sitting out)' : ''),
+                            style: TextStyle(
+                              color: isSittingOut ? Colors.grey : null,
+                              fontStyle: isSittingOut ? FontStyle.italic : null,
+                            ),
                           ),
-                        ),
-                        value: selectedWinners.contains(player),
-                        onChanged: isSittingOut
-                            ? null
-                            : (val) {
-                                setState(() {
-                                  if (val == true) {
-                                    selectedWinners.add(player);
-                                  } else {
-                                    selectedWinners.remove(player);
-                                  }
-                                  isSolo = selectedWinners.length == 1;
-                                });
-                              },
-                      );
-                    }).toList(),
-                  ],
+                          value: selectedWinners.contains(player),
+                          onChanged: isSittingOut
+                              ? null
+                              : (val) {
+                                  setState(() {
+                                    if (val == true) {
+                                      selectedWinners.add(player);
+                                    } else {
+                                      selectedWinners.remove(player);
+                                    }
+                                    isSolo = selectedWinners.length == 1;
+                                  });
+                                },
+                        );
+                      }).toList(),
+                    ],
+                  ),
                 ),
               ),
-            ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
@@ -391,6 +420,33 @@ class GameScreen extends StatelessWidget {
     return List.generate(numSitOut, (k) => (dealerIndex + 2 * k) % playerCount);
   }
 
+  Map<String, String> _getShortNames(List<String> names) {
+    Map<String, String> shortNames = {};
+    for (String name in names) {
+      int length = 1;
+      while (length <= name.length) {
+        String prefix = name.substring(0, length);
+        bool isUnique = true;
+        for (String otherName in names) {
+          if (name == otherName) continue;
+          if (otherName.startsWith(prefix)) {
+            isUnique = false;
+            break;
+          }
+        }
+        if (isUnique) {
+          shortNames[name] = prefix;
+          break;
+        }
+        length++;
+      }
+      if (!shortNames.containsKey(name)) {
+        shortNames[name] = name;
+      }
+    }
+    return shortNames;
+  }
+
   Widget _buildTableCell(
     BuildContext context,
     String text, {
@@ -407,15 +463,17 @@ class GameScreen extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isRoundEnd ? colorScheme.outline : colorScheme.outlineVariant,
+              color: isRoundEnd
+                  ? colorScheme.outline
+                  : colorScheme.outlineVariant,
               width: isRoundEnd ? 3.0 : 1.0,
             ),
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
         child: Text(
           text,
-          textAlign: score != null ? TextAlign.right : TextAlign.center,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13.0,
             fontWeight: isHeader || isBold ? FontWeight.bold : FontWeight.w500,

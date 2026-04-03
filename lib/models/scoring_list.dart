@@ -24,4 +24,20 @@ class ScoringList extends HiveObject {
     required this.players,
     this.games = const [],
   });
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'timestamp': timestamp.toIso8601String(),
+        'players': players,
+        'games': games.map((e) => e.toJson()).toList(),
+      };
+
+  factory ScoringList.fromJson(Map<String, dynamic> json) => ScoringList(
+        title: json['title'] as String,
+        timestamp: DateTime.parse(json['timestamp'] as String),
+        players: (json['players'] as List).cast<String>(),
+        games: (json['games'] as List)
+            .map((e) => Game.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
 }

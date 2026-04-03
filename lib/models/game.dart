@@ -15,4 +15,16 @@ class Game extends HiveObject {
   bool isSolo;
 
   Game({required this.winners, required this.plusPoints, this.isSolo = false});
+
+  Map<String, dynamic> toJson() => {
+        'winners': winners,
+        'plusPoints': plusPoints,
+        'isSolo': isSolo,
+      };
+
+  factory Game.fromJson(Map<String, dynamic> json) => Game(
+        winners: (json['winners'] as List).cast<String>(),
+        plusPoints: json['plusPoints'] as int,
+        isSolo: json['isSolo'] as bool? ?? false,
+      );
 }
